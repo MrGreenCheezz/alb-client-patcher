@@ -1,0 +1,131 @@
+{
+  "_comment": [
+    "Манифест патча локальной версии клиента Albion Online. Это ЕДИНСТВЕННЫЙ источник данных",
+    "для патчера: здесь адреса (VA), байты ДО и ПОСЛЕ, смысл и доказательство каждой правки.",
+    "Добавить правку = дописать объект в sites нужной группы (va, before/after одинаковой длины",
+    "в hex, note). Код патчера при этом менять не нужно.",
+    "Другой адрес локального сервера: поменяй new_target у шести сайтов группы login_addr",
+    "на слот нужной строки и подбери after = little endian (new_target - (va + 4))."
+  ],
+  "build": {
+    "name": "Albion-Online 1.32.030.345319 (albiononline-win32-full-1.32.030.345319)",
+    "file": "GameAssembly.dll",
+    "image_base": "0x180000000",
+    "sha256_original": "19a684ad23103f0b9a12b005c0d31609a55e3624699dc1b0e6fd509166c77202",
+    "sha256_patched": "985c105acb7ccc6bc3cd2e6b217576c2588321c274e02850269e4f9548b478c4",
+    "comment_sha256_patched": "Эталон: ровно та сборка, на которой патч уже проверялся запуском в игре (WORKLOG.md, run1). Если выход не равен этому sha256 - правки легли не туда или билд другой."
+  },
+  "checks": [
+    {
+      "va": "0x184DC1F68",
+      "expect_u64": "0xa000151b",
+      "note": "Слот .data, на который перенацеляется загрузка адреса сервера. Его содержимое (8 байт little endian) - encoded-ссылка 0xa000151b на строковый литерал '127.0.0.1:5055' (строка лежит в game-local/Albion-Online_Data/il2cpp_data/Metadata/global-metadata.dat:0x36eb4, одно вхождение). Тот же слот метод dwu..cctor уже использует для dev-окружения, поэтому метаданные менять не нужно."
+    }
+  ],
+  "groups": [
+    {
+      "id": "login_addr",
+      "title": "Серверы логина и статусов -> 127.0.0.1:5055",
+      "method": "dwu..cctor, VA 0x1818D7BF0 (сборка списка живых регионов)",
+      "how": "Для каждого региона адрес логин-сервера грузится инструкцией mov rdx,[rip+disp32], адрес статус-сервера - mov r9,[rip+disp32]; обе читают 8 байт слота строкового литерала в .data. Правка меняет только 4 байта смещения (disp32), чтобы все шесть загрузок читали слот строки '127.0.0.1:5055'. Строки, метаданные и остальной код не трогаются.",
+      "evidence": "analysis/decomp (dwu..cctor), analysis/tools/patch_login_addr.py:19-28. Проверено запуском: патченый клиент слал status-запросы на 127.0.0.1:5055 (analysis/runs/run1-Player.log:80-92 + server.log видит peer'ы Albion.StatusServer)",
+      "sites": [
+        {
+          "va": "0x1818D8031",
+          "before": "ebb84f03",
+          "after": "339f4e03",
+          "verify": {
+            "asm": "mov rdx,[rip+disp32]",
+            "opcode_at_minus3": "488b15",
+            "old_target": "0x184DD3920",
+            "new_target": "0x184DC1F68"
+          },
+          "note": "West, логин-сервер: было loginserver.live.albion.zone:5055 (слот 0x184DD3920), стало 127.0.0.1:5055 (слот 0x184DC1F68). Меняются только 4 байта disp32; инструкция mov rdx,[rip+disp32] (байты 488b15) начинается на 3 байта раньше, она проверяется, но остаётся."
+        },
+        {
+          "va": "0x1818D80DC",
+          "before": "784f4f03",
+          "after": "889e4e03",
+          "verify": {
+            "asm": "mov rdx,[rip+disp32]",
+            "opcode_at_minus3": "488b15",
+            "old_target": "0x184DCD058",
+            "new_target": "0x184DC1F68"
+          },
+          "note": "Europe, логин-сервер: было live03-loginserver.ams.albion.zone:5055 (слот 0x184DCD058), стало 127.0.0.1:5055 (слот 0x184DC1F68). Меняются только 4 байта disp32; инструкция mov rdx,[rip+disp32] (488b15) проверяется, но остаётся."
+        },
+        {
+          "va": "0x1818D8181",
+          "before": "234c4f03",
+          "after": "e39d4e03",
+          "verify": {
+            "asm": "mov rdx,[rip+disp32]",
+            "opcode_at_minus3": "488b15",
+            "old_target": "0x184DCCDA8",
+            "new_target": "0x184DC1F68"
+          },
+          "note": "East, логин-сервер: было live02-loginserver.sg.albion.zone:5055 (слот 0x184DCCDA8), стало 127.0.0.1:5055 (слот 0x184DC1F68). Меняются только 4 байта disp32; инструкция mov rdx,[rip+disp32] (488b15) проверяется, но остаётся."
+        },
+        {
+          "va": "0x1818D8023",
+          "before": "294c4f03",
+          "after": "419f4e03",
+          "verify": {
+            "asm": "mov r9,[rip+disp32]",
+            "opcode_at_minus3": "4c8b0d",
+            "old_target": "0x184DCCC50",
+            "new_target": "0x184DC1F68"
+          },
+          "note": "West, статус-сервер: было live01-win-status.dc02.albion.zone:5055 (слот 0x184DCCC50), стало 127.0.0.1:5055 (слот 0x184DC1F68). Меняются только 4 байта disp32; инструкция mov r9,[rip+disp32] (4c8b0d) проверяется, но остаётся."
+        },
+        {
+          "va": "0x1818D80CE",
+          "before": "de504f03",
+          "after": "969e4e03",
+          "verify": {
+            "asm": "mov r9,[rip+disp32]",
+            "opcode_at_minus3": "4c8b0d",
+            "old_target": "0x184DCD1B0",
+            "new_target": "0x184DC1F68"
+          },
+          "note": "Europe, статус-сервер: было live03-win-status.ams.albion.zone:5055 (слот 0x184DCD1B0), стало 127.0.0.1:5055 (слот 0x184DC1F68). Меняются только 4 байта disp32; инструкция mov r9,[rip+disp32] (4c8b0d) проверяется, но остаётся."
+        },
+        {
+          "va": "0x1818D8173",
+          "before": "894d4f03",
+          "after": "f19d4e03",
+          "verify": {
+            "asm": "mov r9,[rip+disp32]",
+            "opcode_at_minus3": "4c8b0d",
+            "old_target": "0x184DCCF00",
+            "new_target": "0x184DC1F68"
+          },
+          "note": "East, статус-сервер: было live02-win-status.sg.albion.zone:5055 (слот 0x184DCCF00), стало 127.0.0.1:5055 (слот 0x184DC1F68). Меняются только 4 байта disp32; инструкция mov r9,[rip+disp32] (4c8b0d) проверяется, но остаётся."
+        }
+      ]
+    },
+    {
+      "id": "battleye",
+      "title": "Отключение обязательной проверки BattlEye",
+      "method": "dw1/b.MoveNext (VA 0x1819091ED) и dhb.b(string) (VA 0x180B291DF)",
+      "how": "На старте клиент вызывает ci7.bo(platform): тот поднимает BattlEye (cix.Init -> LoadLibrary 'BEClient_x64' -> экспорт Init) и при неудаче пишет в лог 'Unable to call Init() for BattlEye' и готовит сообщение 'Disconnected by BattlEye' (поле ci7+0xC8). Правка 1 выключает сам этот вызов на старте (5 nop вместо call) - клиент вообще не пытается грузить BE. Правка 2 - страховка: если путь init всё же вызовется, ветка 'Init не удался' перепрыгивает сразу к эпилогу метода, минуя лог и сообщение. Весь остальной BE-код сам себя пропускает, когда интерфейс BE не загружен (dhb.c() == false).",
+      "evidence": "analysis/decomp/be_callers.c:139-255 (ci7.bo), analysis/decomp/dhb.c:189-210 и :232-261 (dhb.b, dhb.c), analysis/cpp2il/DiffableCs/Albion.PhotonClient/{ci7,dhb}.cs; разбор прошлой сессии записан в WORKLOG.md (раздел 'Факты (BE-анализ, продолжение)')",
+      "sites": [
+        {
+          "va": "0x1819091ED",
+          "before": "e8befa06ff",
+          "after": "9090909090",
+          "verify": { "call_target": "0x180978CB0" },
+          "note": "call ci7.bo (запуск BattlEye) -> пять nop. Проверяется, что call действительно ведёт в ci7.bo = 0x180978CB0, иначе остановка."
+        },
+        {
+          "va": "0x180B291DF",
+          "before": "488b0dd20a",
+          "after": "e97b000000",
+          "verify": { "jmp_target": "0x180B2925F" },
+          "note": "dhb.b(string), ветка 'Init не удался': mov rcx,[rip+0xad2] -> jmp 0x180B2925F (эпилог метода). Пропускаются лог 'Unable to call Init() for BattlEye' (0x180B291E8) и запись '@CONNECTION_ERROR_DISCONNECTBYBATTLEYE' в ci7+0xC8. Проверяется, что new_target jmp реально попадает в эпилог."
+        }
+      ]
+    }
+  ]
+}
