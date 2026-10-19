@@ -1,63 +1,66 @@
-# Патчер локальной версии клиента Albion Online
+# Albion Online local-server client patcher
 
-Инструмент берёт **оригинальный** `GameAssembly.dll` клиента 1.32.030.345319 и делает из него
-файл для **локального** сервера: адреса серверов логина/статусов → `127.0.0.1:5055`, обязательная
-проверка BattlEye отключена. Исходный файл никогда не меняется — результат пишется отдельным файлом.
+[Русская версия: README.ru.md](README.ru.md)
 
-Прозрачность: все правки лежат в `manifest.json` (адрес VA, байты ДО и ПОСЛЕ, смысл, чем доказано),
-патчер их только сверяет и применяет, а после каждого запуска пишет `patch_report.txt` со списком
-всех изменений и sha256 входа/выхода. Код правок не придумывает: если байты на адресе не совпали с
-манифестом — остановка, а не «попробуем иначе».
+The tool takes the **original** `GameAssembly.dll` of client build 1.32.030.345319 and produces a
+file for a **local** server: login/status server addresses → `127.0.0.1:5055`, and the mandatory
+BattlEye check is disabled. The input file is never modified — the result is written as a separate file.
 
-## Файлы
+Transparency: every edit lives in `manifest.json` (VA address, bytes BEFORE and AFTER, meaning, what
+proves it); the patcher only verifies and applies them, and writes `patch_report.txt` after every run
+with the full list of changes and the sha256 of input and output. The code does not invent patches:
+if the bytes at an address do not match the manifest, it stops instead of "trying something else".
+The tool prints its messages in Russian.
 
-| Файл | Что это |
+## Files
+
+| File | What it is |
 |---|---|
-| `patch_albion.py` | сам патчер, Python 3, только стандартная библиотека (никаких pip-пакетов) |
-| `manifest.json` | описание всех правок: адреса, байты до/после, смысл, доказательства, sha256 сборки |
-| `patch_client.bat` | запуск на Windows двойным кликом: список правок → патч → копия в папку клиента с бэкапом |
-| `tests/test_patcher.py` | 23 проверки инструмента (запуск: `python -I tests/test_patcher.py`) |
-| `out/GameAssembly.dll`, `out/patch_report.txt` | результат и отчёт последнего запуска |
+| `patch_albion.py` | the patcher itself: Python 3, standard library only (no pip packages) |
+| `manifest.json` | description of all edits: addresses, bytes before/after, meaning, evidence, build sha256 |
+| `patch_client.bat` | Windows double-click run: list of edits → patch → copy into the client folder with a backup |
+| `tests/test_patcher.py` | 23 checks of the tool itself (run: `python -I tests/test_patcher.py`) |
+| `out/GameAssembly.dll`, `out/patch_report.txt` | result and report of the last run (not meant to be committed) |
 
-## Запуск
+## Running it
 
-Windows (из папки `patcher`):
-
-```
-patch_client.bat                                  game\GameAssembly.dll -> out\ + копия в game-local\
-patch_client.bat D:\путь\GameAssembly.dll         только патчить, ничего не копировать
-patch_client.bat D:\путь\GameAssembly.dll D:\папка_клиента   скопировать результат в другую папку
-```
-
-Любая ОС, подробно (то же самое, что делает батч):
+Windows (from the `patcher` folder):
 
 ```
-python patch_albion.py --list                     показать все правки и выйти (ничего не читает из DLL)
-python patch_albion.py                            патчить ../game/GameAssembly.dll -> out/GameAssembly.dll
-python patch_albion.py <вход> -o <выход>          явные пути
-python patch_albion.py --check-only               только сверка: что будет изменено, ничего не пишет
-python patch_albion.py --group battleye           только одна группа правок (id из манифеста)
-python patch_albion.py -o <выход> --copy-to <папка клиента>   старый файл клиента -> .bak-<sha8>-<время>
-python patch_albion.py -o <выход> --cmp-with <эталон>         побитово сравнить результат с эталоном
-python patch_albion.py --strict-sha               требовать, чтобы вход был ровно оригинальной сборки
+patch_client.bat                                  game\GameAssembly.dll -> out\ + copy into game-local\
+patch_client.bat D:\path\GameAssembly.dll         patch only, copy nothing
+patch_client.bat D:\path\GameAssembly.dll D:\client-folder   copy the result into another folder
 ```
 
-Код возврата: `0` успех, `2` файл не подошёл (сборка/байты), `3` ошибка путей или аргументов.
+Any OS, explicit form (exactly what the batch file does):
 
-После патча клиент запускается обычным `Albion-Online.exe` (не `Albion-Online_BE.exe`) из папки,
-куда лёг пропатченный `GameAssembly.dll`; папку `BattlEye` удалять не нужно.
+```
+python patch_albion.py --list                     show every edit and exit (does not read the DLL at all)
+python patch_albion.py                            patch ../game/GameAssembly.dll -> out/GameAssembly.dll
+python patch_albion.py <input> -o <output>        explicit paths
+python patch_albion.py --check-only               verification only: what would change, writes nothing
+python patch_albion.py --group battleye           only one group of edits (id from the manifest)
+python patch_albion.py -o <output> --copy-to <client-dir>    old client file -> .bak-<sha8>-<timestamp>
+python patch_albion.py -o <output> --cmp-with <reference>    byte-compare the result with a reference file
+python patch_albion.py --strict-sha               require the input to be exactly the original build
+```
 
-## Что именно меняется (8 мест, 34 байта)
+Exit codes: `0` success, `2` the file did not match (build/bytes), `3` path or argument error.
 
-### Группа `login_addr` — серверы логина и статусов → 127.0.0.1:5055
+After patching, start the client with the plain `Albion-Online.exe` (not `Albion-Online_BE.exe`) from the
+folder that received the patched `GameAssembly.dll`; the `BattlEye` folder does not have to be deleted.
 
-Метод `dwu..cctor` (VA `0x1818D7BF0`) собирает список живых регионов: адрес логин-сервера грузится
-инструкцией `mov rdx,[rip+disp32]`, адрес статус-сервера — `mov r9,[rip+disp32]`; обе читают 8 байт
-слота строкового литерала в `.data`. Правка меняет **только 4 байта смещения**, чтобы все шесть
-загрузок читали слот строки `127.0.0.1:5055` — тот же слот этот метод уже использует для dev-окружения,
-поэтому строки и метаданные не трогаются.
+## What exactly changes (8 sites, 34 bytes)
 
-| Адрес (disp32) | Было | Стало | Region |
+### Group `login_addr` — login and status servers → 127.0.0.1:5055
+
+The method `dwu..cctor` (VA `0x1818D7BF0`) builds the list of live regions: the login server address is
+loaded with `mov rdx,[rip+disp32]` and the status server address with `mov r9,[rip+disp32]`; both read the
+8 bytes of a string-literal slot in `.data`. The patch changes **only the 4 displacement bytes** so that all
+six loads read the slot of the string `127.0.0.1:5055` — the very slot this method already uses for the dev
+environment, so no strings and no metadata are touched.
+
+| Address (disp32) | Before | After | Region |
 |---|---|---|---|
 | `0x1818D8031` | `ebb84f03` | `339f4e03` | West: loginserver.live.albion.zone:5055 |
 | `0x1818D80DC` | `784f4f03` | `889e4e03` | Europe: live03-loginserver.ams.albion.zone:5055 |
@@ -66,58 +69,58 @@ python patch_albion.py --strict-sha               требовать, чтобы
 | `0x1818D80CE` | `de504f03` | `969e4e03` | Europe: live03-win-status.ams.albion.zone:5055 |
 | `0x1818D8173` | `894d4f03` | `f19d4e03` | East: live02-win-status.sg.albion.zone:5055 |
 
-Слот назначения `0x184DC1F68` содержит encoded-ссылку `0xa000151b` на литерал `127.0.0.1:5055`
-(строка лежит в `global-metadata.dat:0x36eb4`); перед правкой патчер проверяет это значение.
+The destination slot `0x184DC1F68` holds the metadata-encoded reference `0xa000151b` to the literal
+`127.0.0.1:5055` (the string lives at `global-metadata.dat:0x36eb4`); the patcher checks this value first.
 
-### Группа `battleye` — обязательная проверка BattlEye
+### Group `battleye` — the mandatory BattlEye check
 
-Клиент на старте вызывает `ci7.bo(platform)`: тот поднимает BE (`cix.Init` → LoadLibrary
-`BEClient_x64` → экспорт `Init`) и при неудаче пишет в лог «Unable to call Init() for BattlEye» и
-готовит сообщение «Disconnected by BattlEye». Правка 1 выключает сам вызов, правка 2 — страховка для
-повторного пути: ветка неудачи перепрыгивает к эпилогу метода, минуя лог и сообщение. Весь остальной
-BE-код сам себя пропускает, когда интерфейс BE не загружен (`dhb.c() == false`) — это проверено
-дизассемблированием в прошлой сессии.
+At startup the client calls `ci7.bo(platform)`, which brings BattlEye up (`cix.Init` → LoadLibrary
+`BEClient_x64` → the `Init` export); on failure it logs "Unable to call Init() for BattlEye" and prepares
+the "Disconnected by BattlEye" message. Patch 1 disables the call itself; patch 2 is the safety net for the
+second path — the failure branch jumps straight to the method epilogue, skipping the log and the message.
+All other BattlEye code skips itself when the BE interface was never loaded (`dhb.c() == false`), which was
+verified by disassembly earlier in this project.
 
-| Адрес | Было | Стало | Смысл |
+| Address | Before | After | Meaning |
 |---|---|---|---|
-| `0x1819091ED` | `e8befa06ff` (`call ci7.bo`) | `9090909090` | стартаповый вызов загрузки BE пропущен целиком |
-| `0x180B291DF` | `488b0dd20a` | `e97b000000` (`jmp 0x180B2925F`) | ветка «Init не удался» → сразу эпилог `dhb.b(string)` |
+| `0x1819091ED` | `e8befa06ff` (`call ci7.bo`) | `9090909090` | the startup call that loads BattlEye is skipped entirely |
+| `0x180B291DF` | `488b0dd20a` | `e97b000000` (`jmp 0x180B2925F`) | "Init failed" branch → straight to the `dhb.b(string)` epilogue |
 
-## Как патчер убеждается, что правки легли туда
+## How the patcher makes sure the edits landed in the right places
 
-1. Читает PE-заголовки: PE32+, image base `0x180000000`; переход адрес → смещение в файле — по таблице секций.
-2. Сверяет sha256 входа с заявленной оригинальной сборкой (не совпал — предупреждение и продолжение:
-   побайтовая сверка сайтов строжче; нужен стоп — `--strict-sha`).
-3. Проверяет предпосылку: значение слота `0x184DC1F68` = `0xa000151b`.
-4. Каждый сайт: байты «до» или «уже пропатчено» + семантика (что `call` реально ведёт в `ci7.bo`
-   `0x180978CB0`, что `jmp` после правки попадает в эпилог `0x180B2925F`, что disp32 ссылается ровно
-   на заявленный слот). Не совпало — остановка с адресом и ожидаемыми байтами, выходной файл не пишется.
-5. Итог: sha256 выхода сравнивается с эталоном манифеста `985c105a…` — это ровно та сборка, на которой
-   патч уже проверялся запуском в игре (см. `../WORKLOG.md`, run1: клиент слал status-запросы на 127.0.0.1:5055).
+1. It reads the PE headers: PE32+, image base `0x180000000`; the address → file offset mapping comes from the section table.
+2. It compares the input sha256 with the original build recorded in the manifest (mismatch = warning and continuation:
+   the per-site byte checks are stricter; to make it a stop, use `--strict-sha`).
+3. It checks the precondition: slot `0x184DC1F68` contains `0xa000151b`.
+4. For every site: the "before" bytes or the "already patched" bytes, plus semantics (that the `call` really targets
+   `ci7.bo` at `0x180978CB0`, that the `jmp` after the patch lands on the epilogue `0x180B2925F`, that each disp32 points
+   exactly at the declared slot). On any mismatch it stops, names the address and the expected bytes, and writes no output file.
+5. Finally: the output sha256 is compared with the manifest reference `985c105a…` — that is exactly the build on which this
+   patch was already verified by running the game (see the project journal `../WORKLOG.md`: the client sent status requests
+   to 127.0.0.1:5055).
 
-Тесты (`python -I tests/test_patcher.py`) проверяют: результат побитово равен эталонному
-`../work/GameAssembly.dll`; повторный запуск ничего не меняет; промежуточное состояние (сначала
-`login_addr`, потом `battleye`) даёт тот же эталон; подменённый байт → остановка без записи файла;
-`--check-only` ничего не пишет; `--copy-to` делает бэкап старого файла; заявленные в манифесте sha256
-соответствуют реальным файлам.
+The tests (`python -I tests/test_patcher.py`) verify: the result is byte-identical to the reference
+`../work/GameAssembly.dll`; running it again changes nothing; an intermediate state (`login_addr` first, then
+`battleye`) reaches the same reference; a flipped byte stops with no file written; `--check-only` writes nothing;
+`--copy-to` backs up the old file; and the sha256 values declared in the manifest match the real files.
 
-## Свой адрес сервера, своя сборка, новая правка
+## Your own server address, your own build, a new patch
 
-- **Другой адрес вместо `127.0.0.1:5055`:** в манифесте у шести сайтов `login_addr` поменяй
-  `new_target` на слот нужной строки и `after` на little endian от `new_target - (адрес + 4)`
-  (патчер пересчитает и сверит). Проще оставить `127.0.0.1` и пробросить порт на своей машине.
-- **Другая сборка клиента:** патчер остановится на первом несовпадении байтов. Нужно снять новые
-  адреса (декомпиляция `dwu..cctor` и `dhb.b`/`ci7.bo`, скрипты в `../analysis/tools/`) и записать их
-  в манифест — код менять не придётся.
-- **Новая правка:** объект `{va, before, after, note}` в `sites` любой группы; `verify` добавляется,
-  если хочешь, чтобы патчер сверял семантику (opcode/call/jmp/target).
+- **A different address instead of `127.0.0.1:5055`:** in the manifest, for the six `login_addr` sites set `new_target` to the
+  slot of the string you want and `after` to the little-endian encoding of `new_target - (address + 4)` (the patcher recomputes
+  and re-checks it). Keeping `127.0.0.1` and forwarding the port on your own machine is simpler.
+- **A different client build:** the patcher stops at the first byte mismatch. Collect the new addresses (decompile `dwu..cctor`
+  and `dhb.b`/`ci7.bo`; scripts in `../analysis/tools/`) and write them into the manifest — no code changes needed.
+- **A new edit:** add a `{va, before, after, note}` object to `sites` in any group; add `verify` if you want the patcher to check
+  semantics as well (opcode / call target / jmp target).
 
-## Замечания
+## Notes
 
-- Контрольная сумма PE не пересчитывается (Windows для обычных DLL её не проверяет; так же было в
-  ранее работавшем патче адресов). Если твой запускчик начнёт ругаться на контрольную сумму —
-  скажи, добавлю пересчёт.
-- Патч меняет только managed-код `GameAssembly.dll`; `Albion-Online_BE.exe`, папку `BattlEye` и
-  метаданные не трогает.
-- Клиент с выключенным BE — для **локального** сервера. На официальный сервер им лучше не логиниться:
-  сервер сам требует BE, и это вопрос правил игры, а не качества патча.
+- The PE checksum is not recomputed (Windows does not verify it for ordinary DLLs; the previously working address patcher
+  behaved the same way). If your launcher ever complains about the checksum, ask and I will add a recomputation.
+- The patch changes only the managed code inside `GameAssembly.dll`; `Albion-Online_BE.exe`, the `BattlEye` folder and the
+  metadata are untouched.
+- A client with BattlEye disabled is meant for a **local** server. Do not log into the official servers with it: the servers
+  require BattlEye themselves, which is a question of the game's rules, not of the patch's quality.
+- The patched `GameAssembly.dll` is Sandbox Interactive's file, not mine: redistributing it is their right. This repository
+  holds only my own code and the byte-level notes about it.

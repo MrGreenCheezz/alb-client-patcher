@@ -1,0 +1,6 @@
+# Windows: .bat обязан приходить с CRLF, иначе cmd.exe может спотыкаться
+*.bat text eol=crlf
+# остальное держим в LF, чтобы не было шума на кросс-платформенных коммитах
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
